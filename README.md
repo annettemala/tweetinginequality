@@ -2,11 +2,11 @@
 Analyzes framing of inequality in tweets
 
 To run analysis
-1) get access to the Twitter API on the twitter developer portal and save keys.
+1) Get access to the Twitter API on the twitter developer portal and save keys.
 	I. Save your access keys in a file named "twitter_keys.txt" in the same folder where the scripts lie. 
 	II. The keys must be stored in the following format: key, secret, bearer token in three subsequent, separate lines
 
-2) make sure that you have installed the following packages on your machine.
+2) Make sure that you have installed the following packages on your machine.
 - gender_guesser.detector
 - nltk
 - requests
@@ -16,9 +16,9 @@ To run analysis
 - tweepy
 - wordcloud
 
-3) put all scripts, text files, pickled files and the folder "data" in the same folder on your computer.
+3) Download all files and folders in this repository and keep the data structure as is; i.e, put all scripts, text files, pickled files and the folder "data" in the same folder on your computer.
 
-4) use scripts in the following order to go through the analysis steps. please note required user input.
+4) Use scripts in the following order to go through the analysis steps. please note required user input.
 - collect_tweets_archive
 	- This script requires user input (variable "group_file"): The topic of inequality for which tweets shall be collected has to be specified: either "money" (for economic inequality) or "race" (for racial inequality).
 	- The script then collects tweets from 365 days starting at 01.01.2021.
