@@ -7,14 +7,14 @@ To run analysis
 	II. The keys must be stored in the following format: key, secret, bearer token in three subsequent, separate lines
 
 2) make sure that you have installed the following packages on your machine.
-	gender_guesser.detector
-	nltk
-	requests
-	sklearn
-	spacy and its "en_core_web_sm" model
-	textblob
-	tweepy
-	wordcloud
+- gender_guesser.detector
+- nltk
+- requests
+- sklearn
+- spacy and its "en_core_web_sm" model
+- textblob
+- tweepy
+- wordcloud
 
 3) put all scripts, text files, pickled files and the folder "data" in the same folder on your computer.
 
