@@ -1,1 +1,0 @@
-(black OR poc OR people of colo OR racial minorit OR ethnic minorit OR white OR caucasian OR racial majorit OR ethnic majorit) than -is:retweet lang:en
