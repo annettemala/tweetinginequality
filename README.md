@@ -12,7 +12,7 @@ To run analysis
 - tweepy
 - wordcloud
 
-3) Put all scripts, text files, pickled files and the folder "data" in the same folder on your computer.
+3) Put all files in this repository in the same folder on your computer.
 
 4) Use scripts in the following order to go through the analysis steps. Please note required user input.
 
