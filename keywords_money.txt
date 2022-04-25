@@ -1,1 +1,0 @@
-(poor OR low income OR lower income OR lowest income OR poverty OR bottom earner OR bottom half OR less wealthy OR lower 50% OR working class OR rich OR high income OR higher income OR highest income OR wealthy OR wealthi OR top earner OR elite OR billionaire OR millionaire OR upper 50%) than -is:retweet lang:en
