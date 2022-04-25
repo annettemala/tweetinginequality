@@ -14,7 +14,7 @@ To run analysis
 
 3) Put all files in this repository in the same folder on your computer.
 
-4) Use scripts in the following order to go through the analysis steps. Please note required user input.
+4) Use scripts in the following order to go through the analysis steps. 
 
 collect_tweets_archive
 - The script collects tweets from 365 days starting at the date specified by the user. Default is January, 1st, 2021. 
