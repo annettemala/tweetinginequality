@@ -40,7 +40,7 @@ predict_frame_ML
 - The final dataset is saved in Excel format in '/data/fullsample', under the name: current date + "_tweets_oneyear_ML".
 
 validate_ML
-- This script compares the categorization of tweets obtained by the syntax method (tweet_analysis) and the machine learning method (predict_frames) to a set of manually annotated tweets ("tweets_validation.xlsx"). 
+- This script compares the categorization of tweets obtained by the syntax method (tweet_analysis) and the machine learning method (predict_frames) to a set of manually annotated tweets ("tweets_validation.xlsx"). The manually annotated set may not be uploaded to GitHub as per Twitter's restrictions.
 - This script preprocesses tweets by deleting duplicates, converting all text to lower case, removing URLs, mentions, stopwords (except the word "than"), and punctuation. 
 - Then, tweets are lemmatized, tokenized and shuffled.
 - Accuracy (precision and recall) are computed for the syntax and the machine learning method (TF-IDF, SVC) and output in two .txt files: "accuracy_output" and "accuracy_output_syntax". 
