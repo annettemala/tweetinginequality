@@ -19,16 +19,16 @@ To run analysis
 collect_tweets_archive
 - The script collects tweets from 365 days starting at the date specified by the user. Default is January, 1st, 2021. 
 - Up to 500 tweets will be collected for each hour in this time span (less than 500 tweets will be collected if fewer tweets match the query).
-- The collected tweets will be saved as pandas pickle files in the folder '/data/analyzed/'. 
+- The collected tweets will be saved as pandas pickle files in a folder '/data/raw/'. 
 	
 tweet_analysis
 - This script prepares tweets for analysis, and analyzes the syntax to find inequality frames.
-- The tweets are then saved in the folder '/data/analyzed/'. 
+- The tweets are then saved in a folder '/data/analyzed/'. 
 
 merge_files
 - This script takes all analyzed tweet files and merges them into one dataset.
 - Duplicate tweets are deleted. 
-- The dataframe is then saved in the folder '/data/fullsample'.
+- The dataframe is then saved in a folder '/data/fullsample'.
 - The file name is the current date + "_tweets_oneyear_analyzed".
 - The full dataframe is saved in both pandas pickle and in Excel format. 
 - These files contain a pre-filtered dataset containing potentially relevant tweets and their metrics.
