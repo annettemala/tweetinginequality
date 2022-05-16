@@ -91,7 +91,7 @@ def order_df(df):
     return df
 
 ############################
-# Merge files
+# Analyze files
 ############################
 # Define paths
 data_directory = working_directory + '/data/raw/' 
