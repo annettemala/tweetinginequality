@@ -12,8 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, include = FALSE}
 #library(groundhog)
 #pkgs <- c("psych", "dplyr", "haven", "summarytools", "Hmisc", "rstatix", "rcompanion", "jtools", "tidyr",
-#          "rms", "esquisse", "tibble", "apaTables", "DescTools", "car", "lmtest", "robustbase")
-#groundhog.library(pkgs, "2021-04-11")
+#          "rms", "esquisse", "tibble", "apaTables", "DescTools", "car", "lmtest", "robustbase", "psycl", "countreg",
+#          "ggcorrplot", "knitr")
+#groundhog.library(pkgs, "2022-04-11")
 
 library(psych)
 library(dplyr)
@@ -32,60 +33,36 @@ library(DescTools)
 library(car)
 library(lmtest)
 library(robustbase)
+library(pscl)
+library(countreg)
+library(ggcorrplot)
+library(knitr)
 ```
 
 # Prepare data
 ## Load data
 ```{r}
 # Loading data
-group = 'race'
-file_name = paste('tweets_', group, '.sav', sep ='')
-data <- read_sav(file_name)
+data <- read_sav("tweets_race.sav")
 
 # Choose only data where syntax and ML frame match
+out <- subset(data, data$MLframe != data$frame)
 data <- subset(data, data$MLframe == data$frame)
-
-# Choose only data with less than 1000 folloers
-#data <- subset(data, data$followerscount < 1000)
 
 # Covert empty strings to NA
 data <- data %>% mutate_all(na_if,"")
 ```
 
-## New variables
+## Recode variable
 ```{r}
 # Create numeric frame variable
 data$frame_num <- as.factor(paste(ifelse(data$MLframe == 'disadvantage frame', 1, 0)))
-
-# New variable: followers count in units of 100
-data$followers_100 <- data$followerscount/100
-
-# Replace zero values with missing value
-data_na <- data
-data_na$retweetcount <- replace(data_na$retweetcount, data_na$retweetcount == 0, NA)
-data_na$replycount <- replace(data_na$replycount, data_na$replycount == 0, NA)
-data_na$quotecount <- replace(data_na$quotecount, data_na$quotecount == 0, NA)
-data_na$likecount <- replace(data_na$likecount, data_na$likecount == 0, NA)
-
-# Compute new variable: tweet reactions per follower
-reaction_perf <- function(old_variable) {
-  new_variable <- old_variable/data_na$followers_100
-  new_variable <- ifelse(data_na$followers_100 == 0, old_variable, new_variable)
-  
-  return(new_variable)
-}
-data_na$retweets_perf <- reaction_perf(data_na$retweetcount)
-data_na$replies_perf <- reaction_perf(data_na$replycount)
-data_na$quotes_perf <- reaction_perf(data_na$quotecount)
-data_na$likes_perf <- reaction_perf(data_na$likecount)
-
-
 ```
 
 # Describe data
 ## Followers count
 ```{r}
-psych::describe(data$followerscount)
+kable(psych::describe(data$followerscount))
 ```
 
 ## Histogram of followers
@@ -96,74 +73,113 @@ plotNormalHistogram(data$followerscount)
 
 https://techjury.net/blog/twitter-statistics/#gref Examining nearly 100 million Twitter accounts, Brandwatch found that the average number of followers those accounts have is 707. If we want to keep Twitter analytics free of celebrity bias and choose to ignore accounts that have over 100,000 followers, the average user has 453 people following them. \ 
 
-##Correlation of followers count with tweet metrics
-```{r}
-apa.cor.table(data_na[c('likecount', 'retweetcount', 'quotecount', 'replycount', "followerscount")],
-              filename = 'corrtable_followers.doc')
-
-corr_tab_followers <- psych::corr.test(as.matrix(data_na[c('likecount', 'retweetcount', 'quotecount', 'replycount', "followerscount")]), method = "pearson", adjust = 'bonferroni')
-print(corr_tab_followers, digits=4)
-```
-
-
 ## Tweet metrics
 ### Retweets
 ```{r}
-# All cases
-psych::describe(data$retweetcount)
+kable(psych::describe(data$retweetcount))
 plotNormalHistogram(data$retweetcount)
-
-# Without zero values
-psych::describe(subset(data, data$retweetcount>0)$retweetcount)
-
-# Per 100 followers
-psych::describe(subset(data_na, data_na$retweetcount>0)$retweets_perf)
 ```
 
 ###Replies
 ```{r}
-# All cases
-psych::describe(data$replycount)
+kable(psych::describe(data$replycount))
 plotNormalHistogram(data$replycount)
-
-# Without zero values
-psych::describe(subset(data, data$replycount>0)$replycount)
-
-# Per 100 followers
-psych::describe(subset(data_na, data_na$replycount>0)$replies_perf)
 ```
 
 ###Quotes
 ```{r}
-# All cases
-psych::describe(data$quotecount)
+kable(psych::describe(data$quotecount))
 plotNormalHistogram(data$quotecount)
-
-# Without zero values
-psych::describe(subset(data, data$quotecount>0)$quotecount)
-
-# Per 100 followers
-psych::describe(subset(data_na, data_na$quotecount>0)$quotes_perf)
 ```
 
 ###Likes
 ```{r}
-# All cases
-psych::describe(data$likecount)
+kable(psych::describe(data$likecount))
 plotNormalHistogram(data$likecount)
+```
 
-# Without zero values
-psych::describe(subset(data, data$likecount>0)$likecount)
+## Log transform of variables
+### Check for linear relationships
+```{r}
+data %>% 
+  ggplot(aes(x = followerscount, y = likecount)) +
+  geom_point(alpha = .2) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") # linear relationship
 
-# Per 100 followers
-psych::describe(subset(data_na, data_na$likecount>0)$likes_perf)
+data %>%
+  ggplot(aes(x = followerscount, y = likecount)) +
+  geom_point(alpha = .2) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") + 
+  scale_x_continuous(trans = "log1p") +
+  scale_y_continuous(trans = "log1p") 
+
+data %>% 
+  ggplot(aes(x = replycount, y = quotecount)) +
+  geom_point(alpha = .2) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") # linear relationship
+
+data %>%
+  ggplot(aes(x = replycount, y = quotecount)) +
+  geom_point(alpha = .2) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") + 
+  scale_x_continuous(trans = "log1p") +
+  scale_y_continuous(trans = "log1p") 
+```
+
+
+### Transform data
+To deal with skew in our data, and to achieve linearity, we log transform followerscount, and tweets metrics to compute correlations. 
+```{r}
+# Followers count
+data$followerscount_log <- data$followerscount %>% log1p() # log1p() instead of log() because there are zeroes in the data
+data %>% ggplot(aes(x = followerscount_log)) + geom_histogram()
+
+# Like count
+data$likecount_log <- data$likecount %>% log1p() 
+
+# Retweet count
+data$retweetcount_log <- data$retweetcount %>% log1p() 
+
+# Quote count
+data$quotecount_log <- data$quotecount %>% log1p() 
+
+# Reply count
+data$replycount_log <- data$replycount %>% log1p() 
+```
+
+
+## Correlation of followers count with tweet metrics
+We adjusted the p-values using the Bonferroni method.
+```{r}
+corr_tab_followers <- psych::corr.test(as.matrix(data[c('likecount_log', 'retweetcount_log', 'quotecount_log', 'replycount_log', "followerscount_log")]), method = "pearson", adjust = 'bonferroni', ci = TRUE)
+kable(print(corr_tab_followers, digits=4, short = FALSE))
+apa.cor.table(dplyr::select(data, c(likecount_log:replycount_log)), show.conf.interval = TRUE)
+```
+
+### Does time of posting correlate with tweet metrics?
+```{r}
+# Time delta
+data$date_day <- as.Date(substr(data$date, 1, 10))
+data$age <- as.numeric(difftime(as.Date("2022-03-17"), data$date_day))
+
+# Distribution of age
+data %>% ggplot(aes(x = age)) + geom_histogram()
+
+# Correlation of age with tweet metrics
+corr_tab_age <- psych::corr.test(as.matrix(data[c('age', 'likecount_log', 'retweetcount_log', 'quotecount_log', 'replycount_log')]), method = "pearson", adjust = 'bonferroni', ci = TRUE)
+kable(print(corr_tab_age, digits=4, short = FALSE))
 ```
 
 # Prevalence of tweets
 ## Descriptive analysis
 ```{r}
 table_frames <- summarytools::freq(data$MLframe, plain.ascii = FALSE, style = "rmarkdown")
-table_frames
+kable(table_frames)
+
 # Corrected prevalence of privilege frames
 table_frames_corr <- enframe(table_frames)[0:2,]
 table_frames_corr$value_corr <- ifelse(table_frames_corr$name == 'privilege frame', 
@@ -177,19 +193,7 @@ prev_df
 prev_pf
 ```
 
-# Correlations of variables
-```{r}
-# Continuous variables
-corr_tab <- psych::corr.test(as.matrix(data_na[c('likes_perf', 'retweets_perf', 'quotes_perf', 'replies_perf')]),
-                             method = "pearson", adjust = 'bonferroni')
-print(corr_tab, digits=4)
-apa.cor.table(data_na[c('likes_perf', 'retweets_perf', 'quotes_perf', 'replies_perf')],
-              filename = 'corrtable.doc')
-```
-
-# Prediction of tweet metrics
-None of the tweet metrics are in any way normally distributed. Thus, we recoded the tweet metrics into categorical variables, where no occurence = 0 and 1 or more occurences = 1. 
-
+# Inspection of zero-values
 ```{r}
 # Make sure tweet metrics don't have missing values
 sum(is.na(data[c('retweetcount', 'replycount', 'quotecount', 'likecount')]))
@@ -207,363 +211,103 @@ data$quote_dicho <- recode_metrics(data$quotecount)
 data$like_dicho <- recode_metrics(data$likecount)
 
 # Distribution of dichotomous variables
-summarytools::freq(data$retweet_dicho, plain.ascii = FALSE, style = "rmarkdown")
-summarytools::freq(data$reply_dicho, plain.ascii = FALSE, style = "rmarkdown")
-summarytools::freq(data$quote_dicho, plain.ascii = FALSE, style = "rmarkdown")
-summarytools::freq(data$like_dicho, plain.ascii = FALSE, style = "rmarkdown")
+kable(summarytools::freq(data$retweet_dicho, plain.ascii = FALSE, style = "rmarkdown"))
+kable(summarytools::freq(data$reply_dicho, plain.ascii = FALSE, style = "rmarkdown"))
+kable(summarytools::freq(data$quote_dicho, plain.ascii = FALSE, style = "rmarkdown"))
+kable(summarytools::freq(data$like_dicho, plain.ascii = FALSE, style = "rmarkdown"))
 ```
 
-## Logistic regression of tweet metrics on frame
-As many tweets prompt no reaction (no retweet, reply, quote or like) from other users, we test the effect of frame on tweet metrics in two ways: We investigate if frame influences whether a tweet gets a reaction at all via logisitic regression. And we investigate how much of a reaction a tweet gets via linear regression. The number of followers are a covariate.\
-
-### Visualization: Proportion of tweets with at least one retweet, reply, like, quote
+## Poisson regression of tweet metrics on frame
+### Visualization
+We plot added variable plots (partial regression plots) which show the relationship between the outcome variable and one predictor variable while controlling for the presence of other predictor variables in the model. 
 ```{r}
-data_probability <- data[c("retweet_dicho", "reply_dicho", "like_dicho", "quote_dicho", "MLframe")] %>%
-             pivot_longer(-(MLframe), names_to = "variables", values_to = "value") %>%
-            group_by(MLframe, variables)
+data %>%
+  pivot_longer(cols = retweetcount:quotecount, names_to = "column") %>%
+  ggplot(aes(x = column, y = value, group = frame, colour = frame)) +
+  stat_summary(fun = mean, geom = "point", na.rm = TRUE, position = position_dodge(width=0.5)) +
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .3, position = position_dodge(width=0.5)) +
+  theme_apa() +
+  labs(title = "Mean tweet reactions across frames with 95% CI",
+       x = "",
+       y = "Tweet reactions")
 
-data_probability <- subset(data_probability, data_probability$value == 1)
-
-data_probability <- data_probability %>%
-  group_by(variables, MLframe) %>%
-  summarise(counts = n()) 
-
-data_probability$counts <- ifelse(data_probability$MLframe == 'privilege frame', 
-                                  data_probability$counts/nrow(subset(data, data$MLframe == 'privilege frame')),
-                                  data_probability$counts/nrow(subset(data, data$MLframe == 'disadvantage frame')))
-
-plot <- ggplot(data_probability, aes(x = variables, y = counts, fill = MLframe)) +
-  geom_bar(stat = "identity", alpha = 0.5, position = position_dodge(), colour = 'black') + 
-  scale_fill_manual(values = c("disadvantage frame" = "white",
-                               "privilege frame" = "black")) 
-plot <- last_plot() + 
-        theme_apa() + ylab('Proportion of tweets') + xlab('')
+plot <- last_plot()
 ggplot_to_ppt(gg="plot")
-plot
+
+tweetmetrics_tab <- data %>%
+                    group_by(MLframe) %>%
+                    get_summary_stats(retweetcount, 
+                                      replycount, 
+                                      quotecount, 
+                                      likecount,
+                                      type = "mean_se")
+
+kable(tweetmetrics_tab)
 ```
 
-
-### Retweet probability
--**Regression of retweet probability on frame and followers count**
-```{r}
-# Regression model using rms library -> returns Chi square and R² -> insert for other measures as well
-log_model_retweets <- lrm(retweet_dicho ~ followers_100 + frame_num, data = data, maxit = 1000)
-print(log_model_retweets)
-```
-
-By taking the exponent of the coefficient value, we get the odds ratio.\
-```{r}
-# Followers count
-exp(coefficients(log_model_retweets)[2])
-
-# Frame
-exp(coefficients(log_model_retweets)[3])
-```
-
-We construct a 95% confidence interval for the estimated model coefficient. We exponentiate the result to return the odds-ratio, which is a quantity that is easier to interpret than the log-odds.\
-```{r}
-# Construct a 95% confidence interval for the estimated model coefficient
-# Exponentiate the result to return the odds-ratio, which is a quantity that is easier to interpret than the log-odds
-# Followers count
-confint.default(log_model_retweets)[2,]
-exp(confint.default(log_model_retweets)[2,])
-
-# Frame
-confint.default(log_model_retweets)[3,]
-exp(confint.default(log_model_retweets)[3,])
-```
-
-Interpretation: https://www.geo.fu-berlin.de/en/v/soga/Basics-of-statistics/Logistic-Regression/Logistic-Regression-in-R---An-Example/index.html 
-Results in words are missing. 
-Thus, the odds ratio of a retweet increases by 1.344727 (or 34.47%) if the tweet contains a disadvantage frame, compared to an advantage frame. We can be 95% confident that a disadvantage frame makes it between 11.1 and 75.0% more likely that a tweet is retweeted.
-
-### Reply probability
-```{r}
-# Regression model using rms library -> returns Chi square and R² -> insert for other measures as well
-log_model_replies <- lrm(reply_dicho ~ followers_100 + frame_num, data = data, maxit = 1000)
-print(log_model_replies)
-
-#By taking the exponent of the coefficient value, we get the odds ratio.\
-# Followers count
-exp(coefficients(log_model_replies)[2])
-
-# Frame
-exp(coefficients(log_model_replies)[3])
-
-# Construct a 95% confidence interval for the estimated model coefficient
-# Exponentiate the result to return the odds-ratio, which is a quantity that is easier to interpret than the log-odds
-# Followers count
-confint.default(log_model_replies)[2,]
-exp(confint.default(log_model_replies)[2,])
-
-# Frame
-confint.default(log_model_replies)[3,]
-exp(confint.default(log_model_replies)[3,])
-```
-
-### Quote probability
-```{r}
-# Regression model using rms library -> returns Chi square and R² -> insert for other measures as well
-log_model_quotes <- lrm(quote_dicho ~ followers_100 + frame_num, data = data, maxit = 1000)
-print(log_model_quotes)
-
-#By taking the exponent of the coefficient value, we get the odds ratio.\
-# Followers count
-exp(coefficients(log_model_quotes)[2])
-
-# Frame
-exp(coefficients(log_model_quotes)[3])
-
-# Construct a 95% confidence interval for the estimated model coefficient
-# Exponentiate the result to return the odds-ratio, which is a quantity that is easier to interpret than the log-odds
-# Followers count
-confint.default(log_model_quotes)[2,]
-exp(confint.default(log_model_quotes)[2,])
-
-# Frame
-confint.default(log_model_quotes)[3,]
-exp(confint.default(log_model_quotes)[3,])
-```
-
-### Like probability
-```{r}
-# Regression model using rms library -> returns Chi square and R² -> insert for other measures as well
-log_model_likes <- lrm(like_dicho ~ followers_100 + frame_num, data = data, maxit = 1000)
-print(log_model_likes)
-
-#By taking the exponent of the coefficient value, we get the odds ratio.\
-# Followers count
-exp(coefficients(log_model_likes)[2])
-
-# Frame
-exp(coefficients(log_model_likes)[3])
-
-# Construct a 95% confidence interval for the estimated model coefficient
-# Exponentiate the result to return the odds-ratio, which is a quantity that is easier to interpret than the log-odds
-# Followers count
-confint.default(log_model_likes)[2,]
-exp(confint.default(log_model_likes)[2,])
-
-# Frame
-confint.default(log_model_likes)[3,]
-exp(confint.default(log_model_likes)[3,])
-```
-
-## Linear regression of tweet metrics on frame
 ### Retweet count
--**Linear regression of retweets on frame and follower count**
-According to Cohen’s (1988) guidelines, f2≥ 0.02, f2≥ 0.15, and f2 ≥ 0.35 represent small, medium, and large effect sizes, respectively.
+-**Count regression of retweet counts**
+Interpretation of rootograms: The under hanging values (e.g.) for 0 indicate that there are too few (e.g.) zeros expected in the respective model. The over hanging values show that there is overprediction for the respective values. 
 ```{r}
-lm_model_retweets <- lm(retweets_perf ~ frame_num, data_na)
-summary(lm_model_retweets)
+# Poisson regression
+poisson_retweets <- glm(retweetcount ~ followerscount + frame_num, family="poisson", data=data)
+summary(poisson_retweets)
+confint(poisson_retweets)
+countreg::rootogram(poisson_retweets)
 
-# Effect size f²
-rsqu_retw <- summary(lm_model_retweets)$r.squared
-f2_retw <- rsqu_retw/(1-rsqu_retw)
-f2_retw
+# Poisson regression (followers count log transformed)
+poisson_retweets <- glm(retweetcount ~ followerscount_log + frame_num, family="poisson", data=data)
+summary(poisson_retweets)
+confint(poisson_retweets)
+countreg::rootogram(poisson_retweets)
 ```
-
--**Assumptions**
-**Linearity**
-Residuals vs. Fitted plot: Ideally, the residual plot will show no fitted pattern. That is, the red line should be approximately horizontal at zero. The presence of a pattern may indicate a problem with some aspect of the linear model.
-However, the linearity need not be present here because the focal predictor is a dummy variable. 
-```{r}
-plot(lm_model_retweets, 1)
-```
-
-**Homogeneity of variance**
-Scale-location plot: This plot shows if residuals are spread equally along the ranges of predictors. It’s good if you see a horizontal line with equally spread points.
-```{r}
-plot(lm_model_retweets, 3)
-```
-
-**Normality of residuals**
-The QQ plot of residuals can be used to visually check the normality assumption. The normal probability plot of residuals should approximately follow a straight line.
-```{r}
-plot(lm_model_retweets, 2)
-```
-
-**Outliers and high leverage points**
-Observations whose standardized residuals are greater than 3 in absolute value are possible outliers (James et al. 2014).
-A data point has high leverage, if it has extreme predictor x values. This can be detected by examining the leverage statistic or the hat-value. A value of this statistic above 2(p + 1)/n indicates an observation with high leverage (P. Bruce and Bruce 2017); where, p is the number of predictors and n is the number of observations. 
-
-Cook’s Distance is an estimate of the influence of a data point. It takes into account both the leverage and residual of each observation. Cook’s Distance is a summary of how much a regression model changes when the ith observation is removed. When looking to see which observations may be outliers, a general rule of thumb is to investigate any point that is more than 3x the mean of all the distances (source for that?).
-```{r}
-plot(lm_model_retweets, 5, id.n = 10)
-```
-
--**Correction for normal distribution**
-As nomenclature suggests, the method of HCCMs was developed to specifically address violation of the homoscedastic
-distributional assumption, and not that of normality. Very often, however, HCCMs are applied in practice to address general
-forms of misspecification including non-normality (Pek et al., 2018).
-```{r}
-# HCCM
-cov1_retweets <- hccm(lm_model_retweets, type="hc1") 
-retweets.HC1 <- coeftest(lm_model_retweets, vcov.=cov1_retweets)
-retweets.HC1
-
-waldtest(lm_model_retweets, vcov = cov1_retweets)
-```
-
 
 ### Reply count
--**Linear regression of replies on frame and follower count**
+-**Count regression of retweet counts**
 ```{r}
-lm_model_replies <- lm(replies_perf ~ frame_num, data_na)
-summary(lm_model_replies)
+# Poisson regression
+poisson_replies <- glm(replycount ~ followerscount + frame_num, family="poisson", data=data)
+summary(poisson_replies)
+confint(poisson_replies)
+countreg::rootogram(poisson_replies)
 
-# Effect size f²
-rsqu_rep <- summary(lm_model_replies)$r.squared
-f2_rep <- rsqu_rep/(1-rsqu_rep)
-f2_rep
-```
-
--**Assumptions**
-**Linearity**
-```{r}
-plot(lm_model_replies, 1)
-```
-
-**Homogeneity of variance**
-```{r}
-plot(lm_model_replies, 3)
-```
-
-**Normality of residuals**
-```{r}
-plot(lm_model_replies, 2)
-```
-
-**Outliers and high leverage points**
-```{r}
-plot(lm_model_replies, 5, id.n = 10)
-```
-
--**Correction for normal distribution**
-```{r}
-# HCCM
-cov1_replies <- hccm(lm_model_replies, type="hc1") 
-replies.HC1 <- coeftest(lm_model_replies, vcov.=cov1_replies)
-replies.HC1
-
-waldtest(lm_model_replies, vcov = cov1_replies)
+# Poisson regression (followers count log transformed)
+poisson_replies <- glm(replycount ~ followerscount_log + frame_num, family="poisson", data=data)
+summary(poisson_replies)
+confint(poisson_replies)
+countreg::rootogram(poisson_replies)
 ```
 
 ### Quote count
--**Linear regression of quotes on frame and follower count**
+-**Count regression of retweet counts**
 ```{r}
-lm_model_quotes <- lm(quotes_perf ~ frame_num, data_na)
-summary(lm_model_quotes)
+# Poisson regression
+poisson_quotes <- glm(quotecount ~ followerscount + frame_num, family="poisson", data=data)
+summary(poisson_quotes)
+confint(poisson_quotes)
+countreg::rootogram(poisson_quotes)
 
-# Effect size f²
-rsqu_quo <- summary(lm_model_quotes)$r.squared
-f2_quo <- rsqu_quo/(1-rsqu_quo)
-f2_quo
-```
-
--**Assumptions**
-**Linearity**
-```{r}
-plot(lm_model_quotes, 1)
-```
-
-**Homogeneity of variance**
-```{r}
-plot(lm_model_quotes, 3)
-```
-
-**Normality of residuals**
-```{r}
-plot(lm_model_quotes, 2)
-```
-
-**Outliers and high leverage points**
-```{r}
-plot(lm_model_quotes, 5, id.n = 10)
-```
-
--**Correction for normal distribution**
-```{r}
-# HCCM
-cov1_quotes <- hccm(lm_model_quotes, type="hc1") 
-quotes.HC1 <- coeftest(lm_model_quotes, vcov.=cov1_quotes)
-quotes.HC1
-
-waldtest(lm_model_quotes, vcov = cov1_quotes)
+# Poisson regression (followers count log transformed)
+poisson_quotes <- glm(quotecount ~ followerscount_log + frame_num, family="poisson", data=data)
+summary(poisson_quotes)
+confint(poisson_quotes)
+countreg::rootogram(poisson_quotes)
 ```
 
 ### Like count
--**Linear regression of likes on frame and follower count**
+-**Count regression of retweet counts**
 ```{r}
-lm_model_likes <- lm(likes_perf ~ frame_num, data_na)
-summary(lm_model_likes)
+# Poisson regression
+poisson_likes <- glm(likecount ~ followerscount + frame_num, family="poisson", data=data)
+summary(poisson_likes)
+confint(poisson_likes)
+countreg::rootogram(poisson_likes)
 
-# Effect size f²
-rsqu_lik <- summary(lm_model_likes)$r.squared
-f2_lik <- rsqu_lik/(1-rsqu_lik)
-f2_lik
-```
-
--**Assumptions**
-**Linearity**
-```{r}
-plot(lm_model_likes, 1)
-```
-
-**Homogeneity of variance**
-```{r}
-plot(lm_model_likes, 3)
-```
-
-**Normality of residuals**
-```{r}
-plot(lm_model_likes, 2)
-```
-
-**Outliers and high leverage points**
-```{r}
-plot(lm_model_likes, 5, id.n = 10)
-```
-
--**Correction for normal distribution**
-```{r}
-# HCCM
-cov1_likes <- hccm(lm_model_likes, type="hc1") 
-likes.HC1 <- coeftest(lm_model_likes, vcov.=cov1_likes)
-likes.HC1
-
-waldtest(lm_model_likes, vcov = cov1_likes)
-```
-
-### Visualization
-```{r}
-# Data for visualization
-tweetmetrics_tab <- data_na %>%
-                    group_by(MLframe) %>%
-                    get_summary_stats(retweets_perf, 
-                                      replies_perf, 
-                                      quotes_perf, 
-                                      likes_perf,
-                                      type = "mean_se")
-
-y_lim <- max(tweetmetrics_tab$mean) + max(tweetmetrics_tab$se)
-
-tweetmetrics_tab %>% 
-    group_by(variable) %>% 
-    ggplot(aes(x = variable, y = mean, fill = MLframe)) + 
-    geom_bar(stat="identity", alpha=0.5, 
-             position=position_dodge(),colour="black") +
-    scale_fill_manual(values = c("disadvantage frame" = "white",
-                               "privilege frame" = "black")) +
-    geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2, 
-                  position=position_dodge(.9)) 
-
-plot <- last_plot() + 
-        ylim(0,y_lim) +
-        theme_apa() + theme(axis.text.x = element_text(angle = 90,  hjust = 1)) +
-        xlab("") + ylab("Frequency")
-ggplot_to_ppt(gg="plot")
-plot
+# Poisson regression (followers count log transformed)
+poisson_likes <- glm(likecount ~ followerscount_log + frame_num, family="poisson", data=data)
+summary(poisson_likes)
+confint(poisson_likes)
+countreg::rootogram(poisson_likes)
 ```
 
 # Topic distribution per frame
@@ -571,91 +315,52 @@ plot
 ```{r}
 topics_overall <- data %>%
               get_summary_stats(topic_race1, 
-                                topic_race2, 
-                                topic_race3,
+                                topic_race2,
                                 topic_race4, 
-                                topic_race5, 
                                 topic_race6,
-                                topic_race7, 
                                 type = "mean_se")
 
-topics_overall
-
-topics_all <- data %>%
-              get_summary_stats(topic_race1, 
-                                topic_race2, 
-                                topic_race3,
-                                topic_race4, 
-                                topic_race5, 
-                                topic_race6,
-                                topic_race7, 
-                                type = "mean_se")
+kable(topics_overall)
 
 topics_tab <- data %>%
               group_by(MLframe) %>%
               get_summary_stats(topic_race1, 
-                                topic_race2, 
-                                topic_race3,
+                                topic_race2,
                                 topic_race4, 
-                                topic_race5, 
                                 topic_race6,
-                                topic_race7, 
                                 type = "mean_se")
-topics_tab
-
-topics_tab_all <- data %>%
-              group_by(MLframe) %>%
-              get_summary_stats(topic_race1, 
-                                topic_race2, 
-                                topic_race3,
-                                topic_race4, 
-                                topic_race5, 
-                                topic_race6,
-                                topic_race7, 
-                                type = "mean_se")
+kable(topics_tab)
 ```
 
 ## Visualization
 ```{r}
-topics_tab_all %>% 
-    group_by(variable) %>% 
-    ggplot(aes(x = variable, y = mean, fill = MLframe)) + 
-    geom_bar(stat="identity", alpha=0.5, 
-             position=position_dodge(),colour="black") +
-    scale_fill_manual(values = c("disadvantage frame" = "white",
-                               "privilege frame" = "black")) +
-    geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2, 
-                  position=position_dodge(.9)) 
+data %>%
+  pivot_longer(cols = c(topic_race1, topic_race2, topic_race4, topic_race6), names_to = "column") %>%
+  ggplot(aes(x = column, y = value, group = frame, shape = MLframe)) +
+  stat_summary(fun = mean, geom = "point", na.rm = TRUE, position = position_dodge(width=0.5)) +
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = .3, position = position_dodge(width=0.5)) +
+  expand_limits(y=0) +
+  theme_apa() +
+  labs(title = "Mean topic strength across frames with 95% CI",
+       x = "",
+       y = "Topic strength")
 
-y_lim <- max(topics_tab$mean) + 0.1
-
-plot <- last_plot() + 
-        ylim(0,y_lim)  + 
-        theme_apa() + theme(axis.text.x = element_text(angle = 90,  hjust = 1)) +
-        xlab("") + ylab("Topic frequency")
+plot <- last_plot()
 ggplot_to_ppt(gg="plot")
-plot
 ```
 
 ## Statistical differences in topic use 
 ### MANOVA
 ```{r}
 # Choose topics
-topics_columns = cbind(data$topic_race1, 
-                       data$topic_race2, 
-                       data$topic_race3, 
-                       data$topic_race4, 
-                       data$topic_race5, 
-                       data$topic_race6, 
-                       data$topic_race7
-                       )
+topics_columns = cbind(data$topic_race1,
+                       data$topic_race2,
+                       data$topic_race4,
+                       data$topic_race6)
 topics_string = c('topic_race1', 
-                  'topic_race2', 
-                  'topic_race3', 
-                  'topic_race4', 
-                  'topic_race5', 
+                  'topic_race2',
+                  'topic_race4',  
                   'topic_race6',
-                  'topic_race7',
                   'MLframe')
 
 # Run MANOVA
@@ -674,7 +379,7 @@ data_long <- data[topics_string] %>%
 var.test <- data_long %>%
             group_by(variables) %>%
             levene_test(value ~ MLframe)
-var.test
+kable(var.test)
 
 # Multiple t-tests
 stat.test <- data_long %>%
@@ -683,13 +388,13 @@ stat.test <- data_long %>%
             adjust_pvalue(method = "holm") %>%
             add_significance() 
 
-stat.test
+kable(stat.test)
 
 # Effect sizes
 eff_sizes <- data_long %>%
              group_by(variables) %>%
              cohens_d(value ~ MLframe, var.equal = FALSE)
 
-eff_sizes
+kable(eff_sizes)
 ```
 
